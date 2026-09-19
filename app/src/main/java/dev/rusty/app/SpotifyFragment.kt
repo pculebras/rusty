@@ -417,11 +417,15 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
         // stale render — including the 1 Hz tick's extrapolated elapsed — can never clobber the store.
         deviceName = state.receiverName
 
-        statusName.text = state.receiverName
-        titleText.text = state.trackTitle
-        artistText.text = state.trackArtist
-        elapsedText.text = state.elapsedLabel
-        durationText.text = state.durationLabel
+        statusName.setTextIfChanged(state.receiverName)
+        if (titleText.text?.toString() != state.trackTitle) {
+            titleText.text = state.trackTitle
+            // Re-arm the marquee only on a real track change (see setTextIfChanged).
+            titleText.isSelected = true
+        }
+        artistText.setTextIfChanged(state.trackArtist)
+        elapsedText.setTextIfChanged(state.elapsedLabel)
+        durationText.setTextIfChanged(state.durationLabel)
 
         val visual = state.visualState()
         if (visual == VisualState.IDLE) {
@@ -629,4 +633,17 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
         private val DOT_GREY = 0xFF8B949E.toInt()
         private val DOT_RED = 0xFFF85149.toInt()
     }
+}
+
+/**
+ * Assigns text only when it actually differs.
+ *
+ * `TextView.setText` never early-returns on identical text: it always runs
+ * `checkForRelayout()`, which calls `requestLayout()` for any `wrap_content` view. The
+ * now-playing renderer runs on the 1 Hz playback tick, so re-assigning unchanged labels
+ * forced a layout pass every second — which re-laid out the title and restarted its
+ * marquee, letting it creep only ~2 px before resetting.
+ */
+private fun TextView.setTextIfChanged(value: CharSequence?) {
+    if (text?.toString() != value?.toString()) text = value
 }
