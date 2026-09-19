@@ -361,6 +361,7 @@ object SettingsSheet {
         val themeRadios: List<Pair<RadioButton, ScreensaverThemeId>> = listOf(
             R.id.rbThemeClock to ScreensaverThemeId.CLOCK,
             R.id.rbThemeOled to ScreensaverThemeId.OLED,
+            R.id.rbThemeAlbumArt to ScreensaverThemeId.ALBUM_ART,
             R.id.rbThemeCanvas to ScreensaverThemeId.CANVAS,
             R.id.rbThemeSlideshow to ScreensaverThemeId.SLIDESHOW,
         ).map { (viewId, themeId) -> panel.findViewById<RadioButton>(viewId) to themeId }

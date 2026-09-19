@@ -24,6 +24,17 @@ class ScreensaverThemeIdTest {
         assertEquals(ScreensaverThemeId.CANVAS, ScreensaverThemeId.fromPrefValue("CANVAS"))
     }
 
+    @Test fun albumArtRoundTrips() {
+        assertEquals(ScreensaverThemeId.ALBUM_ART, ScreensaverThemeId.fromPrefValue("ALBUM_ART"))
+    }
+
+    @Test fun albumArtSitsBetweenOledAndCanvas() {
+        // Declaration order is the settings-selector order, so this pins the picker layout.
+        val order = ScreensaverThemeId.values().toList()
+        assertEquals(order.indexOf(ScreensaverThemeId.OLED) + 1, order.indexOf(ScreensaverThemeId.ALBUM_ART))
+        assertEquals(order.indexOf(ScreensaverThemeId.ALBUM_ART) + 1, order.indexOf(ScreensaverThemeId.CANVAS))
+    }
+
     @Test fun slideshowRoundTrips() {
         assertEquals(
             ScreensaverThemeId.SLIDESHOW,

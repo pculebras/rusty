@@ -22,7 +22,10 @@ import java.util.TimeZone
  * clock, so the saver still looks intentional. Independent of the now-playing toggle: selecting the
  * theme is the opt-in, so its controller is always enabled.
  */
-class CanvasTheme : ScreensaverTheme {
+class CanvasTheme(
+    /** When true the Canvas player is never started; the album-art wash is the whole face. */
+    private val artworkOnly: Boolean = false,
+) : ScreensaverTheme {
     private lateinit var root: View
     private lateinit var wash: ImageView
     private lateinit var canvasPlayer: CanvasPlayerView
@@ -64,7 +67,10 @@ class CanvasTheme : ScreensaverTheme {
             store = store,
             fetcher = CanvasRepository.shared,
             tokenProvider = androidSpotifyTokenProvider(context)::token,
-            isEnabled = { true }, // selecting the theme is the opt-in; independent of the now-playing toggle
+            // Selecting the theme is the opt-in, so this is not the now-playing toggle. Under
+            // ALBUM_ART the gate is permanently false: the controller never takes a reaction
+            // key, so no Canvas is ever fetched and the wash below is all that shows.
+            isEnabled = { !artworkOnly },
             scope = scope,
         ).also { it.addListener { state -> renderCanvas(state) } }
         return root
