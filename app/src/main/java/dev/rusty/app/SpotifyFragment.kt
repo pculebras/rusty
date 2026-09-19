@@ -1,5 +1,6 @@
 package dev.rusty.app
 
+import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.animation.LinearInterpolator
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -66,8 +68,8 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
     private lateinit var artistText: TextView
     private lateinit var elapsedText: TextView
     private lateinit var durationText: TextView
-    private lateinit var progressFillView: View
-    private lateinit var progressFill: GradientDrawable
+    private lateinit var progressBar: ProgressBarView
+    private var progressAnimator: ValueAnimator? = null
     private lateinit var albumArtCard: MaterialCardView
     private lateinit var playingInfo: View
     private lateinit var albumArtImage: ImageView
@@ -196,6 +198,7 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
 
     override fun onStop() {
         handler.removeCallbacks(playbackClockTick)
+        progressAnimator?.cancel()
         store.removeListener(storeListener)
         requireContext().unregisterReceiver(clockTickReceiver)
         bloom.onHidden()    // pauses the mesh while off-screen
@@ -302,8 +305,7 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
         artistText = view.findViewById(R.id.tvFullArtist)
         elapsedText = view.findViewById(R.id.tvFullElapsed)
         durationText = view.findViewById(R.id.tvFullDuration)
-        progressFillView = view.findViewById(R.id.viewFullProgressFill)
-        progressFill = (progressFillView.background as GradientDrawable).mutate() as GradientDrawable
+        progressBar = view.findViewById(R.id.viewFullProgressFill)
         albumArtCard = view.findViewById(R.id.albumArtCard)
         playingInfo = view.findViewById(R.id.playingInfo)
         albumArtImage = view.findViewById(R.id.ivFullAlbumArt)
@@ -535,7 +537,7 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
     /** Tints the accent-driven chrome: progress fill, play button, eyebrow. */
     private fun applyAccent(color: Int) {
         AccentHolder.accent = color
-        progressFill.setColor(color)
+        progressBar.accent = color
         playPauseButton.backgroundTintList = ColorStateList.valueOf(color)
         eyebrowText.setTextColor(color)
     }
@@ -553,11 +555,22 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
         } else {
             0f
         }
-        progressFillView.post {
-            val parentWidth = (progressFillView.parent as? View)?.width ?: 0
-            progressFillView.layoutParams = progressFillView.layoutParams.apply {
-                width = (parentWidth * ratio).toInt().coerceAtLeast(0)
-            }
+        progressAnimator?.cancel()
+        val current = progressBar.fraction
+        // Stopped clock, track change or seek: land on the true position at once.
+        if (!state.isPlaybackClockRunning || kotlin.math.abs(ratio - current) > 0.08f) {
+            progressBar.fraction = ratio
+            return
+        }
+        // Between 1 Hz updates, glide toward where the track will be at the *next* update so
+        // the bar stays on the real elapsed time instead of trailing a second behind it. Each
+        // update re-syncs, so drift cannot accumulate.
+        val perTick = if (state.durationMs > 0L) 1_000f / state.durationMs.toFloat() else 0f
+        progressAnimator = ValueAnimator.ofFloat(current, (ratio + perTick).coerceIn(0f, 1f)).apply {
+            duration = 1_000L
+            interpolator = LinearInterpolator()
+            addUpdateListener { progressBar.fraction = it.animatedValue as Float }
+            start()
         }
     }
 
