@@ -28,9 +28,10 @@ cargo ndk -t armeabi-v7a -t arm64-v8a --platform 26 \
   -o ../app/src/main/jniLibs build --release
 ```
 
-> **`--platform 26` is required.** The audio path is cpal's AAudio backend, which
-> links `libaaudio.so` — and the NDK ships that library only for API ≥ 26 (which is
-> also the app's `minSdk`). Omitting it fails to link with `unable to find library -laaudio`.
+> **`--platform 26` matches the app's `minSdk`.** It no longer has to: the audio path
+> is an `android.media.AudioTrack` sink reached over JNI, so nothing links
+> `libaaudio.so` and the old `unable to find library -laaudio` failure is gone. Keep
+> the flag anyway so the native core targets the same API level as the app.
 
 > The JNI symbol names (`Java_dev_rusty_app_NativeBridge_*`) are derived from the
 > app package. If you ever change the package, the native symbols must be regenerated to match.

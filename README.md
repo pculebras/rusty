@@ -58,9 +58,9 @@ https://github.com/user-attachments/assets/973e78b3-98b2-4a9f-96a5-fc913f78ac96
 - **Connect target** — zero-config discovery; appears automatically in any Spotify client on the
   same network.
 - **Streamed straight to the device** — decoded on-device by
-  [librespot](https://github.com/librespot-org/librespot) (Rust) through cpal's native **AAudio**
-  backend, at up to 320 kbps. The output follows the active audio route, so sound moves with a
-  Bluetooth speaker connected or dropped mid-track.
+  [librespot](https://github.com/librespot-org/librespot) (Rust) into an
+  **`android.media.AudioTrack`** sink, at up to 320 kbps. AudioFlinger migrates the track across
+  a route change, so sound moves with a Bluetooth speaker connected or dropped mid-track.
 - **Ambient now-playing screen** — album-art colour wash, drifting mesh background, accent-aware
   theming, and time-aligned **lyrics** that scroll with the track, active line highlighted.
   Optionally the track's looping **Spotify Canvas** video in place of static art.
