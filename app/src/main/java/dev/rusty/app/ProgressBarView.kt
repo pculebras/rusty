@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
 
@@ -49,6 +50,47 @@ class ProgressBarView @JvmOverloads constructor(
                 invalidate()
             }
         }
+
+    /** Previewed fraction while a finger is down. Set to drive a scrub readout. */
+    var onScrub: ((Float) -> Unit)? = null
+
+    /**
+     * Final fraction on release. Setting this enables touch scrubbing; while it is null the
+     * view consumes no touches, so the bar stays inert where seeking is not wanted.
+     */
+    var onSeek: ((Float) -> Unit)? = null
+
+    /** True between touch-down and release, so callers can stop driving [fraction]. */
+    var isScrubbing = false
+        private set
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val commit = onSeek ?: return false
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                isScrubbing = true
+                // Claim the gesture so an ancestor cannot steal it mid-drag.
+                parent?.requestDisallowInterceptTouchEvent(true)
+                preview(event.x)
+            }
+            MotionEvent.ACTION_MOVE -> if (isScrubbing) preview(event.x) else return false
+            MotionEvent.ACTION_UP -> {
+                if (!isScrubbing) return false
+                preview(event.x)
+                isScrubbing = false
+                commit(fraction)
+            }
+            MotionEvent.ACTION_CANCEL -> isScrubbing = false
+            else -> return false
+        }
+        return true
+    }
+
+    private fun preview(x: Float) {
+        if (width <= 0) return
+        fraction = x / width
+        onScrub?.invoke(fraction)
+    }
 
     override fun onDraw(canvas: Canvas) {
         if (fraction <= 0f) return

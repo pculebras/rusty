@@ -32,6 +32,9 @@ object NativeBridge {
     external fun nextTrack()
     external fun previousTrack()
 
+    /** Seeks the current track to [positionMs] via Spirc (no-op without a session). */
+    external fun seekTo(positionMs: Int)
+
     /**
      * Fades the audible Spotify volume to [factor] (1.0 = full, 0.0 = silence) over [fadeMs].
      * The Connect volume slider never sees the attenuation. Safe no-op without a session.

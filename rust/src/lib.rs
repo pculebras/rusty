@@ -1177,6 +1177,23 @@ pub extern "system" fn Java_dev_rusty_app_NativeBridge_pause(
     dispatch_spirc("pause", |spirc| spirc.pause());
 }
 
+/// Seeks the current track to `position_ms`.
+///
+/// Goes through Spirc (`set_position_ms`) rather than `Player::seek` so the seek is reported
+/// to Spotify: the controlling device's progress bar follows, and the resulting `Seeked`
+/// event comes back through the player-event loop to re-anchor our own position. Seeking the
+/// player directly would move only local audio and leave Spirc — and the phone — believing
+/// the old position.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_rusty_app_NativeBridge_seekTo(
+    _env: JNIEnv,
+    _class: JClass,
+    position_ms: jint,
+) {
+    let position_ms = position_ms.max(0) as u32;
+    dispatch_spirc("seekTo", |spirc| spirc.set_position_ms(position_ms));
+}
+
 /// Fades the audible Spotify volume to `factor` (1.0 = full, 0.0 = silence) over `fade_ms`.
 /// Goes through the session's `DuckingMixer`, so the Connect volume slider never sees the
 /// attenuation and a user volume change mid-fade is not clobbered. Sanitises its inputs
