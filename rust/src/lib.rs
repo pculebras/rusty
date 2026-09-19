@@ -717,6 +717,10 @@ async fn consume_player_events(session: Session, mut event_channel: PlayerEventC
     // (and moved into the timer future) so the timer never borrows `idle_deadline`,
     // leaving the event arm free to mutate it.
     let mut idle_deadline: Option<Instant> = None;
+    // Whether playback is currently running. A seek arrives as its own event and does not
+    // change play/pause, so the seek arm republishes with the state we are already in
+    // rather than assuming "PLAYING" (which would resume the UI from a paused seek).
+    let mut is_playing = false;
 
     loop {
         let deadline = idle_deadline;
@@ -733,14 +737,17 @@ async fn consume_player_events(session: Session, mut event_channel: PlayerEventC
                     // 0.8: Playing/Paused no longer carry duration_ms; pass 0 and let metadata fill it.
                     PlayerEvent::Playing { track_id, position_ms, .. } => {
                         idle_deadline = None;
+                        is_playing = true;
                         publish_track_event(&session, "PLAYING", track_id, position_ms, 0, &mut metadata_cache, &mut last_published).await;
                     }
                     PlayerEvent::Paused { track_id, position_ms, .. } => {
                         idle_deadline = Some(Instant::now() + IDLE_SESSION_TIMEOUT);
+                        is_playing = false;
                         publish_track_event(&session, "PAUSED", track_id, position_ms, 0, &mut metadata_cache, &mut last_published).await;
                     }
                     PlayerEvent::Stopped { track_id, .. } => {
                         idle_deadline = Some(Instant::now() + IDLE_SESSION_TIMEOUT);
+                        is_playing = false;
                         publish_track_event(&session, "STOPPED", track_id, 0, 0, &mut metadata_cache, &mut last_published).await;
                     }
                     PlayerEvent::Unavailable { track_id, .. } => {
@@ -751,6 +758,23 @@ async fn consume_player_events(session: Session, mut event_channel: PlayerEventC
                         if let Some((title, artist, _duration, _cover)) = resolve_cached_metadata(&session, track_id, &mut metadata_cache).await {
                             info!("Preloading possible next track: {} — {}", title, artist);
                         }
+                    }
+                    // Position moved without a play/pause change — a seek from a controlling
+                    // device, our own seek, or a correction from the player. Android anchors on
+                    // the last published position and extrapolates locally between events, so
+                    // dropping these left the progress bar and elapsed time counting on from a
+                    // stale anchor until the next Playing/Paused event happened to re-anchor it
+                    // (which is why pausing appeared to "fix" the position).
+                    //
+                    // `publish_track_event`'s dedupe fingerprint includes position_ms, so these
+                    // are not coalesced away. PositionChanged additionally requires
+                    // `PlayerConfig::position_update_interval`, which is unset, so it never fires
+                    // today — handled here so enabling it later needs no further change.
+                    PlayerEvent::Seeked { track_id, position_ms, .. }
+                    | PlayerEvent::PositionChanged { track_id, position_ms, .. }
+                    | PlayerEvent::PositionCorrection { track_id, position_ms, .. } => {
+                        let state = if is_playing { "PLAYING" } else { "PAUSED" };
+                        publish_track_event(&session, state, track_id, position_ms, 0, &mut metadata_cache, &mut last_published).await;
                     }
                     _ => {}
                 }
