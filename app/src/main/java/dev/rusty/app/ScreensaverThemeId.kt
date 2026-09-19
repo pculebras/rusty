@@ -6,7 +6,7 @@ package dev.rusty.app
  * previously-persisted "PARTY" now that the Party theme is shelved (its impl stays in the tree).
  */
 enum class ScreensaverThemeId {
-    CLOCK, OLED, CANVAS, SLIDESHOW;
+    CLOCK, OLED, ALBUM_ART, CANVAS, SLIDESHOW;
 
     val prefValue: String get() = name
 

@@ -308,6 +308,9 @@ class ScreensaverController(
     private fun themeFor(id: ScreensaverThemeId): ScreensaverTheme = when (id) {
         ScreensaverThemeId.CLOCK -> ClockTheme()
         ScreensaverThemeId.OLED -> OledTheme()
+        // Same theme, video suppressed: the album-art wash CanvasTheme already keeps loaded
+        // underneath the Canvas player becomes the whole face.
+        ScreensaverThemeId.ALBUM_ART -> CanvasTheme(artworkOnly = true)
         ScreensaverThemeId.CANVAS -> CanvasTheme()
         ScreensaverThemeId.SLIDESHOW -> SlideshowTheme()
     }

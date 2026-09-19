@@ -54,6 +54,7 @@ class ControlPanelsTest {
     fun `lockscreen theme wire values are the published contract`() {
         assertEquals("clock", ControlLockscreenThemes.wire(ScreensaverThemeId.CLOCK))
         assertEquals("oled", ControlLockscreenThemes.wire(ScreensaverThemeId.OLED))
+        assertEquals("album_art", ControlLockscreenThemes.wire(ScreensaverThemeId.ALBUM_ART))
         assertEquals("canvas", ControlLockscreenThemes.wire(ScreensaverThemeId.CANVAS))
         assertEquals("slideshow", ControlLockscreenThemes.wire(ScreensaverThemeId.SLIDESHOW))
     }
@@ -78,13 +79,19 @@ class ControlPanelsTest {
             listOf(
                 ScreensaverThemeId.CLOCK,
                 ScreensaverThemeId.OLED,
+                ScreensaverThemeId.ALBUM_ART,
                 ScreensaverThemeId.CANVAS,
                 ScreensaverThemeId.SLIDESHOW,
             ),
             ControlLockscreenThemes.selectable(slideshowEnabled = true),
         )
         assertEquals(
-            listOf(ScreensaverThemeId.CLOCK, ScreensaverThemeId.OLED, ScreensaverThemeId.CANVAS),
+            listOf(
+                ScreensaverThemeId.CLOCK,
+                ScreensaverThemeId.OLED,
+                ScreensaverThemeId.ALBUM_ART,
+                ScreensaverThemeId.CANVAS,
+            ),
             ControlLockscreenThemes.selectable(slideshowEnabled = false),
         )
     }
