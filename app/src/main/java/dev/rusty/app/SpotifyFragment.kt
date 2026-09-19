@@ -13,6 +13,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.graphics.Rect
+import android.view.TouchDelegate
 import android.view.animation.LinearInterpolator
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -326,6 +328,7 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
     }
 
     private fun wireInteractions() {
+        setUpScrubbing()
         prevButton.setOnClickListener { NativeBridge.previousTrack() }
         nextButton.setOnClickListener { NativeBridge.nextTrack() }
         playPauseButton.setOnClickListener { togglePlayPause() }
@@ -554,6 +557,8 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
     }
 
     private fun renderProgress(state: ReceiverDashboardState) {
+        // A finger owns the bar while scrubbing; the 1 Hz tick must not drag it back.
+        if (progressBar.isScrubbing) return
         val ratio = if (state.durationMs > 0L) {
             (state.elapsedMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
         } else {
@@ -576,6 +581,47 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
             addUpdateListener { progressBar.fraction = it.animatedValue as Float }
             start()
         }
+    }
+
+    /**
+     * Makes the progress bar seekable by dragging.
+     *
+     * The bar is 6 dp tall — roughly a seventh of a usable touch target — but the column's
+     * vertical budget is tight (a two-line title already pushed the transport row off screen),
+     * so rather than grow the row and retune every margin below it, the hit area is widened
+     * with a [TouchDelegate] on the surrounding column. Nothing about the layout moves.
+     *
+     * Installed from a layout listener because `playingInfo` starts `gone`: its bounds are
+     * only known once it has been measured, and they change with the window.
+     */
+    private fun setUpScrubbing() {
+        val row = progressBar.parent as View
+        val grow = (20 * resources.displayMetrics.density).toInt()
+        row.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val hit = Rect().also { row.getHitRect(it) }
+            hit.inset(0, -grow)
+            playingInfo.touchDelegate = TouchDelegate(hit, progressBar)
+        }
+
+        progressBar.onScrub = { fraction ->
+            // Preview the target time under the finger; the bar itself is already drawn there.
+            val duration = dashboardState.durationMs
+            if (duration > 0L) elapsedText.setTextIfChanged(formatClock((duration * fraction).toLong()))
+        }
+        progressBar.onSeek = { fraction ->
+            val duration = dashboardState.durationMs
+            if (duration > 0L) {
+                progressAnimator?.cancel()
+                NativeBridge.seekTo((duration * fraction).toInt())
+            }
+            // The resulting Seeked event re-anchors position and repaints from real state.
+        }
+    }
+
+    /** m:ss for the scrub readout, matching the elapsed/duration labels. */
+    private fun formatClock(ms: Long): String {
+        val total = (ms / 1000L).coerceAtLeast(0L)
+        return "%d:%02d".format(total / 60, total % 60)
     }
 
     /** Maps receiver state to a (status label, dot color) pair for the now-playing header. */
