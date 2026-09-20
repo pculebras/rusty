@@ -49,8 +49,13 @@ object ScrimStrength {
     /**
      * Never fully opaque, or the artwork stops reading as artwork — which is the whole point
      * of this face.
+     *
+     * Deliberately below what the contrast maths alone would ask for. The text draws its own
+     * shadow, which supplies contrast exactly where the glyphs are; the scrim only has to bring
+     * the field they sit on into range. Leaving the ceiling where the maths put it dimmed bright
+     * covers past the point of looking like artwork for no legibility gained.
      */
-    private const val MAX_ALPHA = 0.78f
+    private const val MAX_ALPHA = 0.58f
 
     /** Highest background luminance that still clears [TARGET_RATIO] against [TEXT_LUMINANCE]. */
     private val targetLuminance: Float
