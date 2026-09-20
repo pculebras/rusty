@@ -10,6 +10,27 @@ user-facing.
 
 ## [Unreleased]
 
+### Added
+- **Album art** screensaver theme, between OLED and Spotify Canvas: the blurred
+  cover and the clock, with no Canvas video.
+- Seek by dragging along the progress bar.
+
+### Fixed
+- Crackling during playback. Audio now goes to Android's own audio track rather
+  than through a general-purpose sound library.
+- A long song title no longer wraps to two lines and pushes the playback controls
+  off the screen — it scrolls instead.
+- The progress bar moves smoothly, and no longer interrupts a scrolling title
+  once a second.
+- Seeking from another device moves the progress bar here too.
+- The blurred backdrop behind the player is properly blurred, instead of a small
+  thumbnail stretched to fill the screen.
+- The clock, date and song stay readable on the screensaver whatever the cover or
+  the Canvas video happens to look like.
+- Moving between the screensaver and the player keeps the same backdrop and
+  animates in both directions, instead of the background flashing through and the
+  player appearing all at once.
+
 ## [2.6.0] - 2026-09-05
 
 ### Added
