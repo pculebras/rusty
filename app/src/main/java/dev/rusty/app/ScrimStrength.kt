@@ -11,26 +11,50 @@ import kotlin.math.pow
  * that never needed dimming. Measuring the background instead means a dark cover keeps its
  * colour and a bright one is dimmed by exactly as much as it takes.
  *
- * Thresholds come from WCAG contrast. White has relative luminance 1.0, and the contrast ratio
- * against a background of luminance `L` is `(1.0 + 0.05) / (L + 0.05)`, so:
+ * Thresholds come from WCAG contrast. For text of relative luminance `Lt` over a background
+ * `Lb` (with `Lt > Lb`) the ratio is `(Lt + 0.05) / (Lb + 0.05)`, so a target ratio `R` needs
+ * `Lb <= (Lt + 0.05) / R - 0.05`.
  *
- *  - 4.5:1 (normal text) needs `L <= 0.183`
- *  - 3:1   (large text)  needs `L <= 0.300`
+ * The text here is NOT white, which matters far more than it looks. The dimmest line —
+ * `muted_dim`, the screensaver's status — sits at about 0.31 relative luminance, so 4.5:1
+ * demands a background at or below ~0.030, where assuming white text would have allowed 0.183.
+ * Solving against white therefore under-scrims every mid-bright cover: white covers still got
+ * enough because they pinned the clamp, but a light blue did not.
  *
- * [TARGET_LUMINANCE] takes the stricter of the two, since these faces mix large clocks with
- * small status lines. Compositing black at alpha `a` scales luminance by `(1 - a)`, so the
- * required alpha follows directly.
+ * Compositing black at alpha `a` scales background luminance by `(1 - a)`, so the required alpha
+ * follows directly.
  */
 object ScrimStrength {
 
-    /** Background luminance we aim to sit at or below: 4.5:1 against white text. */
-    private const val TARGET_LUMINANCE = 0.183f
+    /**
+     * Contrast ratio targeted against the dimmest text drawn over the scrim.
+     *
+     * 3:1 rather than 4.5:1 on purpose. Solving for 4.5:1 against `muted_dim` demands a
+     * near-opaque scrim on any bright cover — which defeats the point of showing the artwork at
+     * all. The text carries a shadow (see screensaver_canvas.xml) for local contrast, so the
+     * scrim only has to get the background into range rather than do the whole job alone.
+     */
+    private const val TARGET_RATIO = 3.0f
+
+    /**
+     * Relative luminance of the dimmest text the scrim has to carry — `muted_dim` (#9B9690),
+     * the screensaver's status line. Solving for the *dimmest* text means the brighter lines
+     * (`ink` clock, `muted` date) clear the bar comfortably.
+     */
+    private const val TEXT_LUMINANCE = 0.308f
 
     /** Never fully clear — a little scrim keeps edges from competing with text. */
     private const val MIN_ALPHA = 0.20f
 
-    /** Never fully opaque — past this the artwork stops reading as artwork. */
-    private const val MAX_ALPHA = 0.80f
+    /**
+     * Never fully opaque, or the artwork stops reading as artwork — which is the whole point
+     * of this face.
+     */
+    private const val MAX_ALPHA = 0.78f
+
+    /** Highest background luminance that still clears [TARGET_RATIO] against [TEXT_LUMINANCE]. */
+    private val targetLuminance: Float
+        get() = ((TEXT_LUMINANCE + 0.05f) / TARGET_RATIO - 0.05f).coerceAtLeast(0.005f)
 
     /** Alpha in 0..1 for a black scrim laid over [background]. */
     fun forBackground(background: Bitmap): Float = forLuminance(meanLuminance(background))
@@ -38,7 +62,7 @@ object ScrimStrength {
     /** Alpha in 0..1 for a black scrim over a background of relative luminance [luminance]. */
     fun forLuminance(luminance: Float): Float {
         if (luminance <= 0f) return MIN_ALPHA
-        val needed = 1f - TARGET_LUMINANCE / luminance
+        val needed = 1f - targetLuminance / luminance
         return needed.coerceIn(MIN_ALPHA, MAX_ALPHA)
     }
 
