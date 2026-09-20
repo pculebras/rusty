@@ -27,6 +27,9 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.palette.graphics.Palette
@@ -528,13 +531,21 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
                     albumGlyphText.visibility = View.GONE
                     val bitmap = (result.drawable as? BitmapDrawable)?.bitmap ?: return@listener
                     // Palette runs its pixel histogram on a worker thread and calls back on the
-                    // main thread; the remaining accent math + 48px downscale are cheap to apply here.
+                    // main thread. The wash is now genuinely blurred rather than a cheap
+                    // downscale, so it goes to a background dispatcher too — this callback lands
+                    // while the bloom animates, which is the worst moment to block the UI thread.
                     Palette.from(bitmap).generate { palette ->
                         if (req != artworkRequestId) return@generate
                         if (view == null || viewLifecycleOwner.lifecycle.currentState < Lifecycle.State.STARTED) return@generate
-                        val artwork = ArtworkProcessor.fromPalette(palette, bitmap, DEFAULT_ACCENT)
-                        washImage.setImageBitmap(artwork.wash)
-                        applyAccent(artwork.accent)
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            val artwork = withContext(Dispatchers.Default) {
+                                ArtworkProcessor.fromPalette(palette, bitmap, DEFAULT_ACCENT)
+                            }
+                            // Re-check: the track can change while the blur runs.
+                            if (req != artworkRequestId) return@launch
+                            washImage.setImageBitmap(artwork.wash)
+                            applyAccent(artwork.accent)
+                        }
                     }
                 }
             )
