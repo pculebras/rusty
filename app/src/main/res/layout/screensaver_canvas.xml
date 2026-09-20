@@ -55,6 +55,10 @@
 
     <TextView
         android:id="@+id/ssClock"
+android:shadowColor="#CC000000"
+android:shadowDx="0"
+android:shadowDy="2"
+android:shadowRadius="18"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="@font/bricolage_regular"
@@ -79,6 +83,10 @@
 
         <TextView
             android:id="@+id/ssDate"
+android:shadowColor="#CC000000"
+android:shadowDx="0"
+android:shadowDy="1"
+android:shadowRadius="10"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/hanken_regular"
@@ -90,6 +98,10 @@
 
         <TextView
             android:id="@+id/ssStatus"
+android:shadowColor="#CC000000"
+android:shadowDx="0"
+android:shadowDy="1"
+android:shadowRadius="10"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
