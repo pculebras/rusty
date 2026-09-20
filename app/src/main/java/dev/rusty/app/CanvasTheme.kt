@@ -137,6 +137,17 @@ class CanvasTheme(
         }
     }
 
+    /**
+     * This face paints the blurred wash, its own scrim and grain — never an ambient mesh. It was
+     * inheriting the default `true`, which told the exiting dashboard to keep its mesh at full
+     * alpha under our fade: with the overlay gone in a quarter second and the dashboard's own wash
+     * only a quarter faded in, what showed through the gap was the mesh's three drifting colours.
+     */
+    override val rendersAmbientMesh: Boolean get() = false
+
+    /** The wash below is the same blurred cover the now-playing face uses. */
+    override val sharesArtworkBackground: Boolean get() = true
+
     override fun onShown() { controller?.start() }
 
     override fun onHidden() {
