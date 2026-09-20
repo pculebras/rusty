@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legibility scrim for the Canvas/Album-art screensaver.
+
+     Uniform rather than a gradient: unlike the now-playing screen (whose text sits on the left,
+     hence bg_scrim_playing's left-heavy horizontal ramp), this face centres the clock, date and
+     status, so there is no edge to bias towards. Same near-black as the player's scrim.
+
+     Fully opaque here on purpose: the strength is applied at runtime as the DRAWABLE's alpha
+     (see CanvasTheme), so this file carries the colour and ScrimStrength carries the amount. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF0B0A0C" />
+</shape>
