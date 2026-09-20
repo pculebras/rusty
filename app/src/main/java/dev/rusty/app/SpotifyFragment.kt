@@ -27,9 +27,6 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.palette.graphics.Palette
@@ -62,6 +59,10 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
     private lateinit var meshView: AmbientMeshView
     private lateinit var washImage: ImageView
     private lateinit var scrimView: View
+    private lateinit var scrimFlatView: View
+
+    /** True while the screensaver covers us, having asked for the reverse bloom. */
+    private var underScreensaver = false
     private lateinit var clockText: TextView
     private lateinit var idleGroup: View
     private lateinit var clockDateText: TextView
@@ -278,14 +279,44 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
      * so the centered clock flies to the corner as now-playing blooms — in sync with the
      * overlay crossfade. If we're idle, the idle face is already correct; nothing to morph.
      */
-    override fun onReturnFromScreensaver(showMesh: Boolean) {
+    override fun onReturnFromScreensaver(showMesh: Boolean, holdWash: Boolean, morphDelayMs: Long) {
         // Read the authoritative store, not our own dashboardState: the screensaver controller's
         // exit fires off the store write, which the store delivers asynchronously AFTER this call —
         // so our field can still be the stale IDLE value at this instant.
+        underScreensaver = false
         if (store.snapshot.state.visualState() == VisualState.ACTIVE) {
-            bloom.resetToIdleInstant(showMesh)
-            bloom.apply(VisualState.ACTIVE, animate = true)
+            bloom.resetToIdleInstant(showMesh, holdWash)
+            // Pose now, move later. While the saver crossfades away it is still drawing its own
+            // centred clock; starting the morph underneath it puts that static clock, fading, on
+            // top of ours already shrinking towards the corner — two clocks for a quarter second.
+            handler.postDelayed({
+                if (view != null) {
+                    bloom.apply(VisualState.ACTIVE, animate = true, holdWash = holdWash)
+                }
+            }, morphDelayMs)
+        } else {
+            // Playback ended while the saver was up. We may still be wearing the stand-in idle
+            // face the reverse morph left behind — the held wash with the mesh switched off, which
+            // is the saver's background, not ours. apply(IDLE) cannot fix it (the bloom already
+            // calls itself IDLE and would no-op), so restore the real idle face directly. holdWash
+            // is deliberately false here: there is no longer a saver above us to match.
+            bloom.resetToIdleInstant(showMesh, holdWash = false)
         }
+    }
+
+    /**
+     * See [ScreensaverExitTarget.onEnterScreensaver]. Only an ACTIVE face has anything to undo;
+     * at idle the dashboard is already the shape the saver is about to cover.
+     *
+     * [underScreensaver] then pins the bloom to IDLE for as long as the saver is up. Without it the
+     * next state delivery — and playback sends them constantly — would call renderDashboardState,
+     * see ACTIVE, and fly the clock straight back to the corner in the middle of the morph.
+     */
+    override fun onEnterScreensaver(): Long {
+        if (store.snapshot.state.visualState() != VisualState.ACTIVE) return 0L
+        underScreensaver = true
+        bloom.morphToIdleUnderScreensaver()
+        return BloomController.IDLE_MS
     }
 
     private fun bindViews(view: View) {
@@ -298,6 +329,7 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
         meshView = view.findViewById(R.id.viewAmbientMesh)
         washImage = view.findViewById(R.id.ivWash)
         scrimView = view.findViewById(R.id.viewScrim)
+        scrimFlatView = view.findViewById(R.id.viewScrimFlat)
         // The clock is shell-owned now (it floats above every feature); the fragment only animates it
         // via its BloomController for the morph's lifetime.
         clockText = (requireActivity() as ShellHost).sharedClock()
@@ -326,7 +358,8 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
             activeViews = listOf(identitySuffix, albumArtCard, playingInfo),
             mesh = meshView,
             wash = washImage,
-            scrim = scrimView
+            scrim = scrimView,
+            scrimFlat = scrimFlatView,
         )
     }
 
@@ -453,7 +486,8 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
         schedulePlaybackClockTick(state)
         rootView.keepScreenOn = state.isPlaybackClockRunning
 
-        bloom.apply(visual, animate = !firstRender)
+        // Pinned to IDLE while the screensaver is up: see onEnterScreensaver().
+        if (!underScreensaver) bloom.apply(visual, animate = !firstRender)
         firstRender = false
 
         // The clock enters the screensaver on tap — a playing-only action — so it joins the
@@ -531,21 +565,32 @@ class SpotifyFragment : Fragment(), InsetAware, KeyEventTarget, ScreensaverExitT
                     albumGlyphText.visibility = View.GONE
                     val bitmap = (result.drawable as? BitmapDrawable)?.bitmap ?: return@listener
                     // Palette runs its pixel histogram on a worker thread and calls back on the
-                    // main thread. The wash is now genuinely blurred rather than a cheap
-                    // downscale, so it goes to a background dispatcher too — this callback lands
-                    // while the bloom animates, which is the worst moment to block the UI thread.
+                    // main thread; the accent maths left here is cheap.
                     Palette.from(bitmap).generate { palette ->
                         if (req != artworkRequestId) return@generate
                         if (view == null || viewLifecycleOwner.lifecycle.currentState < Lifecycle.State.STARTED) return@generate
-                        viewLifecycleOwner.lifecycleScope.launch {
-                            val artwork = withContext(Dispatchers.Default) {
-                                ArtworkProcessor.fromPalette(palette, bitmap, DEFAULT_ACCENT)
+                        applyAccent(ArtworkProcessor.accentFrom(palette, DEFAULT_ACCENT))
+                    }
+                    // The wash goes through the same Coil transformation the screensaver uses, so
+                    // a cover is blurred once and both faces are served from Coil's cache. Coil
+                    // also runs the transform off the main thread, so no dispatcher juggling here.
+                    washImage.load(url) {
+                        crossfade(true)
+                        // Needed to read the blurred pixels back for the scrim measurement below.
+                        allowHardware(false)
+                        transformations(BlurTransformation())
+                        listener(onSuccess = { _, washResult ->
+                            // Solve the flat scrim against the same blurred bitmap the saver
+                            // measures, so the scrim we inherit on a transition is the strength
+                            // the saver was actually drawing — the two faces must agree here or
+                            // the handover shows as a step in brightness.
+                            val blurred = (washResult.drawable as? BitmapDrawable)?.bitmap
+                            if (blurred != null) {
+                                scrimFlatView.background?.mutate()?.alpha =
+                                    (ScrimStrength.forBackground(blurred) * 255f).toInt()
+                                        .coerceIn(0, 255)
                             }
-                            // Re-check: the track can change while the blur runs.
-                            if (req != artworkRequestId) return@launch
-                            washImage.setImageBitmap(artwork.wash)
-                            applyAccent(artwork.accent)
-                        }
+                        })
                     }
                 }
             )

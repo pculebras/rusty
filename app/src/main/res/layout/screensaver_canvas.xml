@@ -28,8 +28,39 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Centered migrating clock, matching the real idle face -->
+    <!-- Legibility scrim, ABOVE the Canvas player so the clock, date and status stay readable
+         over a playing video as well as over static artwork. Its alpha is not fixed: CanvasTheme
+         measures the wash and sets it per cover (see ScrimStrength), so a dark cover keeps its
+         colour and a bright one is dimmed only as far as the contrast needs. -->
+    <View
+        android:id="@+id/ssCanvasScrim"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_scrim_canvas"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Matches the now-playing face, which has carried grain all along: low-alpha noise that
+         stops the blurred wash's gradients banding. -->
+    <dev.rusty.app.GrainView
+        android:id="@+id/ssCanvasGrain"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
         android:id="@+id/ssClock"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="16dp"
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="2"
+        android:shadowRadius="8"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="@font/bricolage_regular"
@@ -54,6 +85,12 @@
 
         <TextView
             android:id="@+id/ssDate"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp"
+            android:shadowColor="#B3000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="6"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/hanken_regular"
@@ -65,6 +102,12 @@
 
         <TextView
             android:id="@+id/ssStatus"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp"
+            android:shadowColor="#B3000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="6"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"

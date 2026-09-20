@@ -87,11 +87,34 @@ interface KeyEventTarget {
     fun onKeyEvent(event: KeyEvent): Boolean
 }
 
-/** A fragment that replays its entrance animation when the screensaver dismisses into it. */
+/** A fragment that plays its entrance animation when the screensaver dismisses into it — and, for
+ *  a saver that shares its background, the same animation in reverse on the way in. */
 interface ScreensaverExitTarget {
-    /** [showMesh] = false when the exiting theme paints no mesh (OLED), so the replayed bloom
-     *  keeps its ambient mesh hidden and the saver's dark transition doesn't flash mesh colors. */
-    fun onReturnFromScreensaver(showMesh: Boolean)
+    /**
+     * [showMesh] = false when the exiting theme paints no mesh (OLED, Canvas, Album art), so the
+     * replayed bloom keeps its ambient mesh hidden and the saver's transition doesn't flash mesh
+     * colors through it.
+     *
+     * [holdWash] = true when the exiting theme is showing the same blurred album-art wash and will
+     * hold it until it is torn down, so the bloom must start with its own wash already at full
+     * strength rather than fading it in under the saver.
+     *
+     * [morphDelayMs] is how long the saver's own crossfade lasts. Match into its starting pose
+     * immediately, but hold the animation itself until that has elapsed: a morph running under the
+     * crossfade competes with the saver still on screen, fading.
+     */
+    fun onReturnFromScreensaver(showMesh: Boolean, holdWash: Boolean, morphDelayMs: Long)
+
+    /**
+     * The screensaver is coming up over this feature while it is showing an active face. Play the
+     * bloom backwards — clock growing back to the centre, now-playing elements leaving, the
+     * gradient scrim handing over to the flat one — so the saver fades in onto a dashboard that
+     * already matches it, the mirror of what [onReturnFromScreensaver] does on the way out.
+     *
+     * Returns how long that morph takes so the controller can land its crossfade at the end of it,
+     * or 0 when there is nothing to morph (an idle face is already the right shape).
+     */
+    fun onEnterScreensaver(): Long
 }
 
 /** A fragment that renders receiver state and wants a nudge when the shell changes it. */
