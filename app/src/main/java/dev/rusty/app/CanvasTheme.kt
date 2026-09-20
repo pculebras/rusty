@@ -28,6 +28,7 @@ class CanvasTheme(
 ) : ScreensaverTheme {
     private lateinit var root: View
     private lateinit var wash: ImageView
+    private lateinit var scrim: android.view.View
     private lateinit var canvasPlayer: CanvasPlayerView
     private lateinit var clock: TextView
     private lateinit var date: TextView
@@ -43,6 +44,7 @@ class CanvasTheme(
     override fun createView(context: Context, parent: ViewGroup, host: ScreensaverHost): View {
         root = LayoutInflater.from(context).inflate(R.layout.screensaver_canvas, parent, false)
         wash = root.findViewById(R.id.ssCanvasWash)
+        scrim = root.findViewById(R.id.ssCanvasScrim)
         canvasPlayer = root.findViewById(R.id.ssCanvasPlayer)
         canvasPlayer.setFill(true)
         clock = root.findViewById(R.id.ssClock)
@@ -91,8 +93,26 @@ class CanvasTheme(
         if (url == loadedWashUrl) return
         loadedWashUrl = url
         if (url.isNullOrBlank()) { wash.setImageDrawable(null); return }
-        // Same Coil call style as SpotifyFragment.renderAlbumArt (centerCrop backdrop).
-        wash.load(url) { crossfade(true) }
+        // Blurred, not the raw cover. This used to load the full-resolution artwork straight
+        // into a centerCrop ImageView, so the screensaver's centred clock, date and status sat
+        // on sharp, arbitrarily-bright detail and could be unreadable. Coil runs the transform
+        // off the main thread and caches the result.
+        wash.load(url) {
+            crossfade(true)
+            // Needed to read pixels back for the scrim measurement below.
+            allowHardware(false)
+            transformations(BlurTransformation())
+            listener(onSuccess = { _, result ->
+                val blurred = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                if (blurred != null) {
+                    // The DRAWABLE's alpha, not the view's: on the now-playing face BloomController
+                    // owns view alpha as the show/hide channel, and keeping the same split here
+                    // means strength and visibility never fight each other.
+                    scrim.background?.mutate()?.alpha =
+                        (ScrimStrength.forBackground(blurred) * 255f).toInt().coerceIn(0, 255)
+                }
+            })
+        }
     }
 
     private fun renderCanvas(state: CanvasState) {
