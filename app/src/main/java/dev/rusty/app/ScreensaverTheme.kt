@@ -66,6 +66,16 @@ interface ScreensaverTheme {
     val rendersAmbientMesh: Boolean get() = true
 
     /**
+     * True when this theme's background IS the dashboard's background — the blurred album-art
+     * wash. The exit then must not crossfade backgrounds against each other: the dashboard brings
+     * its wash up to full strength on the first frame so the two sides are the same pixels, and
+     * the handover is invisible. This is the trick the clock has always used (both faces park a
+     * full-size centred clock, so the crossfade has nothing to show); it just was never extended
+     * to the layer behind it, which is why the dashboard's ambient mesh showed through instead.
+     */
+    val sharesArtworkBackground: Boolean get() = false
+
+    /**
      * Show or hide the interactive Settings/Info chrome. The controller hides it when the saver is a
      * pure sleep layer over a non-receiver feature (any tap just wakes). Default: no-op (themes that
      * draw no chrome ignore it).

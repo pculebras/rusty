@@ -29,6 +29,24 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Layer 2b: the SCREENSAVER's flat scrim, kept here so a transition to and from the
+         album-art saver is one animation on one surface instead of a crossfade between two.
+         The saver's face is this wash under a flat scrim; the now-playing face is the same wash
+         under the gradient below. Holding both here lets the bloom morph flat→gradient while the
+         clock flies to the corner, so the saver can be crossfaded away in its usual quarter
+         second without the background changing at all. Alpha 0 until a bloom drives it;
+         its STRENGTH is the drawable's alpha, set per cover from ScrimStrength. -->
+    <View
+        android:id="@+id/viewScrimFlat"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:alpha="0"
+        android:background="@drawable/bg_scrim_canvas"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Layer 3: scrim for text legibility over the wash -->
     <View
         android:id="@+id/viewScrim"

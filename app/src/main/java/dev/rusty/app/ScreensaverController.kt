@@ -177,7 +177,30 @@ class ScreensaverController(
             if (ev.action == MotionEvent.ACTION_DOWN) onWakeGesture()
             true
         }
-        overlay.animate().alpha(1f).setDuration(CROSSFADE_MS).start()
+        // A theme that shares the dashboard's background can have the dashboard play the bloom in
+        // reverse first — clock back to the centre, now-playing away, gradient retiring into the
+        // flat scrim — and only then crossfade this in, onto a dashboard that has become a copy of
+        // it. The same trick the exit uses, pointed the other way.
+        val morphMs = if (activeTheme?.sharesArtworkBackground == true &&
+            isReceiverForeground() &&
+            store.snapshot.state.visualState() == VisualState.ACTIVE
+        ) {
+            exitTarget()?.onEnterScreensaver() ?: 0L
+        } else {
+            0L
+        }
+        // Start AFTER the morph, not so as to finish with it. The two faces are only identical
+        // once the clock has actually landed in the centre; crossfading while it is still on its
+        // way puts a static clock on top of a travelling one, which is exactly what reads as the
+        // view swapping rather than transforming.
+        //
+        // And take longer over it than the exit does. By this point the dashboard underneath is a
+        // copy of this face — same wash, same flat scrim, same centred clock — so the only thing
+        // the crossfade actually reveals is the date and status text (which the dashboard leaves
+        // to us, see BloomController.showIdle) and the chrome. A quarter second is the right
+        // length for swapping whole faces; for text settling in it is abrupt.
+        val fadeIn = if (morphMs > 0L) SHARED_BACKGROUND_FADE_MS else CROSSFADE_MS
+        overlay.animate().alpha(1f).setStartDelay(morphMs).setDuration(fadeIn).start()
         // Reason = why we're up: idle dashboard → AUTO_IDLE (track start blooms us out);
         // active dashboard → AMBIENT (a peek; a track change must not yank the user out).
         // Over a non-receiver feature the saver is always AMBIENT (a sleep layer that never
@@ -271,13 +294,25 @@ class ScreensaverController(
         if (!isShowing || exiting) return
         exiting = true
         handler.removeCallbacks(tickRunnable)
+        val theme = activeTheme
         // Cancel any debounced work the theme would otherwise land DURING the crossfade, while the
         // revealed dashboard is already rebuilding its own Canvas player.
-        activeTheme?.onExitStarted()
-        // fragment snaps to idle + replays the bloom; a mesh-less theme (OLED) suppresses the
-        // dashboard's mesh so its colors don't flash in over the dark exit.
-        exitTarget()?.onReturnFromScreensaver(activeTheme?.rendersAmbientMesh ?: true)
-        overlay.animate().alpha(0f).setDuration(CROSSFADE_MS).withEndAction { teardown() }.start()
+        theme?.onExitStarted()
+        // fragment snaps to idle + replays the bloom; a mesh-less theme (OLED, Canvas) suppresses
+        // the dashboard's mesh so its colors don't flash in over the exit, and a theme sharing the
+        // album-art wash has the bloom start with that wash already up rather than fading it in.
+        exitTarget()?.onReturnFromScreensaver(
+            showMesh = theme?.rendersAmbientMesh ?: true,
+            holdWash = theme?.sharesArtworkBackground ?: false,
+            morphDelayMs = CROSSFADE_MS,
+        )
+        // Short on purpose. The bloom underneath is what the eye is meant to follow, so the saver
+        // has to be out of the way almost at once; the dashboard is responsible for looking like
+        // the saver for those first frames, which is what makes the handover invisible.
+        // setStartDelay(0) explicitly: a View's ViewPropertyAnimator is one reused object, so the
+        // delay the entry crossfade sets would otherwise still be sitting on it here.
+        overlay.animate().alpha(0f).setStartDelay(0L).setDuration(CROSSFADE_MS)
+            .withEndAction { teardown() }.start()
     }
 
     private fun teardown() {
@@ -351,6 +386,14 @@ class ScreensaverController(
         const val KEY_THEME = "screensaver_theme"
         const val KEY_TIMEOUT_SECONDS = "screensaver_timeout_seconds"
         private const val KEY_TIME_FORMAT_24H = "time_format_24h"
+        // internal, not private: the shared-background transition needs the dashboard to know how
+        // long it has to match this face before the crossfade starts.
         internal const val CROSSFADE_MS = 250L
+
+        /**
+         * Fade-in for a theme that shares the dashboard's background, where the crossfade has
+         * almost nothing left to reveal. See the use site.
+         */
+        private const val SHARED_BACKGROUND_FADE_MS = 450L
     }
 }
