@@ -8,6 +8,30 @@ The section matching each release tag is published as that release's notes and i
 what the app shows under **About & updates → What's new**, so keep entries short and
 user-facing.
 
+## [Unreleased]
+
+### Added
+- **Album art** screensaver theme, between OLED and Spotify Canvas: the blurred
+  cover and the clock, with no Canvas video.
+- Seek by dragging the progress bar **on the device**. 2.7.0 added seeking from a
+  Spotify client; this is the same thing done with a finger on Rusty's own screen.
+
+### Fixed
+- Crackling during playback. Audio now goes to Android's own audio track rather
+  than through a general-purpose sound library, which also drops the app's
+  dependency on AAudio and makes it work on a wider range of devices.
+- A long song title no longer wraps to two lines and pushes the playback controls
+  off the screen — it scrolls instead.
+- The progress bar moves smoothly, and no longer interrupts a scrolling title
+  once a second.
+- The blurred backdrop behind the player is properly blurred, instead of a small
+  thumbnail stretched to fill the screen.
+- The clock, date and song stay readable on the screensaver whatever the cover or
+  the Canvas video happens to look like.
+- Moving between the screensaver and the player keeps the same backdrop and
+  animates in both directions, instead of the background flashing through and the
+  player appearing all at once.
+
 ## [2.7.0] - 2026-09-20
 
 ### Added
